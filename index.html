@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>⚡ SatGuard — Satellite Power Outage Predictor</title>
+
+  <!-- Leaflet.js -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- App Styles -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- HEADER -->
+  <header>
+    <div class="header-content">
+      <h1>⚡ SatGuard</h1>
+      <p class="header-sub">Satellite Power Outage Predictor</p>
+    </div>
+    <div id="refresh-indicator" class="refresh-indicator" title="Time until next auto-refresh">
+      <span class="refresh-icon">🔄</span>
+      <span id="refresh-countdown">60s</span>
+    </div>
+  </header>
+
+  <!-- LOCATION BAR -->
+  <section class="location-bar">
+    <button id="btn-detect" class="btn-primary">
+      <span>📍</span> Auto-Detect Location
+    </button>
+    <span class="location-sep">or enter manually:</span>
+    <input id="input-lat" type="number" step="any" placeholder="Latitude" class="loc-input" />
+    <input id="input-lng" type="number" step="any" placeholder="Longitude" class="loc-input" />
+    <button id="btn-manual" class="btn-secondary">
+      <span>🔍</span> Search
+    </button>
+    <span id="location-display" class="location-display">No location set</span>
+  </section>
+
+  <!-- MAIN GRID -->
+  <main class="grid-container">
+
+    <!-- ROW 1 -->
+    <!-- Satellite Tracker Panel -->
+    <section class="panel" id="panel-satellite">
+      <div class="panel-header">
+        <h2>🛰️ Satellite Tracker</h2>
+        <span id="sat-status" class="status-badge">—</span>
+      </div>
+      <div id="sat-loading" class="loading hidden">
+        <div class="spinner"></div><span>Fetching satellite data…</span>
+      </div>
+      <div id="sat-error" class="error-msg hidden"></div>
+      <div id="sat-content" class="hidden">
+        <div id="sat-map"></div>
+        <div class="sat-info">
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Name</span>
+              <span id="sat-name" class="info-value">—</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Altitude</span>
+              <span id="sat-altitude" class="info-value">—</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Velocity</span>
+              <span id="sat-velocity" class="info-value">—</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Distance from You</span>
+              <span id="sat-distance" class="info-value">—</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Latitude</span>
+              <span id="sat-lat" class="info-value">—</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Longitude</span>
+              <span id="sat-lng" class="info-value">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Weather Panel -->
+    <section class="panel" id="panel-weather">
+      <div class="panel-header">
+        <h2>🌦️ Satellite Weather</h2>
+        <span id="wx-status" class="status-badge">—</span>
+      </div>
+      <div id="wx-loading" class="loading hidden">
+        <div class="spinner"></div><span>Fetching weather data…</span>
+      </div>
+      <div id="wx-error" class="error-msg hidden"></div>
+      <div id="wx-content" class="hidden">
+        <div class="wx-grid">
+          <div class="wx-item">
+            <span class="wx-icon">🌡️</span>
+            <span class="wx-label">Temperature</span>
+            <span id="wx-temp" class="wx-value">—</span>
+          </div>
+          <div class="wx-item">
+            <span class="wx-icon">💧</span>
+            <span class="wx-label">Humidity</span>
+            <span id="wx-humidity" class="wx-value">—</span>
+          </div>
+          <div class="wx-item">
+            <span class="wx-icon">💨</span>
+            <span class="wx-label">Wind Speed</span>
+            <span id="wx-wind" class="wx-value">—</span>
+          </div>
+          <div class="wx-item">
+            <span class="wx-icon">💥</span>
+            <span class="wx-label">Wind Gusts</span>
+            <span id="wx-gusts" class="wx-value">—</span>
+          </div>
+          <div class="wx-item">
+            <span class="wx-icon">🌧️</span>
+            <span class="wx-label">Precipitation</span>
+            <span id="wx-precip" class="wx-value">—</span>
+          </div>
+          <div class="wx-item">
+            <span class="wx-icon">☁️</span>
+            <span class="wx-label">Cloud Cover</span>
+            <span id="wx-cloud" class="wx-value">—</span>
+          </div>
+          <div class="wx-item">
+            <span class="wx-icon">👁️</span>
+            <span class="wx-label">Visibility</span>
+            <span id="wx-visibility" class="wx-value">—</span>
+          </div>
+          <div class="wx-item">
+            <span class="wx-icon">⛈️</span>
+            <span class="wx-label">Storm Code</span>
+            <span id="wx-storm" class="wx-value">—</span>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="chart-weather"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- ROW 2 -->
+    <!-- Seismic Panel -->
+    <section class="panel" id="panel-seismic">
+      <div class="panel-header">
+        <h2>🌍 Seismic Activity</h2>
+        <span id="seismic-status" class="status-badge">—</span>
+      </div>
+      <div id="seismic-loading" class="loading hidden">
+        <div class="spinner"></div><span>Fetching seismic data…</span>
+      </div>
+      <div id="seismic-error" class="error-msg hidden"></div>
+      <div id="seismic-content" class="hidden">
+        <p id="seismic-summary" class="seismic-summary"></p>
+        <table class="seismic-table">
+          <thead>
+            <tr>
+              <th>Magnitude</th>
+              <th>Depth (km)</th>
+              <th>Distance (km)</th>
+              <th>Location</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="seismic-tbody"></tbody>
+        </table>
+        <p id="seismic-none" class="seismic-none hidden">✅ No significant seismic events nearby in the last 7 days.</p>
+      </div>
+    </section>
+
+    <!-- Outage Risk Panel -->
+    <section class="panel" id="panel-risk">
+      <div class="panel-header">
+        <h2>⚡ Power Outage Risk</h2>
+        <span id="risk-status" class="status-badge">—</span>
+      </div>
+      <div id="risk-loading" class="loading hidden">
+        <div class="spinner"></div><span>Calculating risk…</span>
+      </div>
+      <div id="risk-error" class="error-msg hidden"></div>
+      <div id="risk-content" class="hidden">
+        <div class="gauge-wrapper">
+          <canvas id="chart-gauge"></canvas>
+          <div class="gauge-labels">
+            <div class="gauge-score">
+              <span id="risk-score-val">0</span>%
+            </div>
+            <div class="gauge-conf">
+              Confidence: <strong id="risk-conf-val">—</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ROW 3 — Full Width -->
+  <section class="panel panel-full" id="panel-breakdown">
+    <div class="panel-header">
+      <h2>📊 Risk Factor Breakdown</h2>
+    </div>
+    <div id="breakdown-content" class="hidden">
+      <table class="breakdown-table">
+        <thead>
+          <tr>
+            <th>Factor</th>
+            <th>Weight</th>
+            <th>Current Value</th>
+            <th>Contribution</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="breakdown-tbody"></tbody>
+      </table>
+      <div class="risk-summary-box">
+        <p id="risk-summary-text">—</p>
+      </div>
+    </div>
+    <div id="breakdown-placeholder" class="placeholder-msg">
+      📍 Set your location above to begin analysis.
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>
+      Data sources:
+      <a href="https://api.wheretheiss.at/" target="_blank" rel="noopener">WhereTheISS</a> ·
+      <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
+      <a href="https://earthquake.usgs.gov/fdsnws/event/1/" target="_blank" rel="noopener">USGS Earthquake API</a> ·
+      <a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet.js</a> ·
+      <a href="https://www.chartjs.org/" target="_blank" rel="noopener">Chart.js</a>
+    </p>
+    <p class="footer-note">SatGuard uses publicly available data. Not for critical infrastructure decisions.</p>
+  </footer>
+
+  <!-- App JS -->
+  <script src="js/app.js"></script>
+</body>
+</html>
